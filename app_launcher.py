@@ -290,7 +290,7 @@ class UI:
         # Drag handle
         handle = tk.Label(card, text="⋮⋮", bg=ACCENT, fg="white",
                          font=("Segoe UI", 10), width=3, cursor="hand2")
-        handle.grid(row=0, rowspan=2, column=0, sticky="ns", padx=(4,8), pady=8)
+        handle.grid(row=0, column=0, rowspan=2, sticky="ns", padx=(4,8), pady=8)
 
         # Store drag data
         card.drag_data = {"config": config_name, "idx": idx, "card": card}
@@ -317,32 +317,48 @@ class UI:
         handle.bind("<B1-Motion>", on_motion)
         handle.bind("<ButtonRelease-1>", on_release)
 
-        icon = TYPE_ICON.get(app.get("type",""), "⚙️")
-        tk.Label(card, text=f"{icon}  {app.get('name','?')}",
-                 bg=PANEL, fg=TEXT, font=("Segoe UI", 11, "bold")).grid(
-                     row=0, column=1, sticky="w", padx=8, pady=(10,4))
+        # Buttons frame (right side, fixed width)
+        btn_frame = tk.Frame(card, bg=PANEL)
+        btn_frame.grid(row=0, column=99, rowspan=2, sticky="ns", padx=8, pady=8)
 
-        tk.Label(card, text=app.get("type",""), bg=PANEL, fg=ACCENT,
-                 font=("Segoe UI", 9)).grid(row=0, column=2, sticky="w", padx=8)
+        # Edit button
+        edit_btn = btn(btn_frame, "✎", lambda i=idx: self._edit_app_dlg(config_name, i),
+                       color=ACCENT, fg="white")
+        edit_btn.pack(side="top", padx=2, pady=2)
+
+        # Delete button
+        del_btn = btn(btn_frame, "✕", lambda i=idx: self._del_app(config_name, i),
+                      color=DANGER, fg="white")
+        del_btn.pack(side="top", padx=2, pady=2)
+
+        # Content frame (middle - expandable)
+        content_frame = tk.Frame(card, bg=PANEL)
+        content_frame.grid(row=0, column=1, columnspan=98, sticky="ew", padx=8, pady=(10,4))
+        card.columnconfigure(1, weight=1)
+
+        icon = TYPE_ICON.get(app.get("type",""), "⚙️")
+        title = tk.Label(content_frame, text=f"{icon}  {app.get('name','?')}",
+                         bg=PANEL, fg=TEXT, font=("Segoe UI", 11, "bold"))
+        title.pack(anchor="w")
+
+        type_label = tk.Label(content_frame, text=app.get("type",""), bg=PANEL, fg=ACCENT,
+                              font=("Segoe UI", 9))
+        type_label.pack(anchor="w")
 
         # Fields preview
-        col = 3
+        fields_frame = tk.Frame(card, bg=PANEL)
+        fields_frame.grid(row=1, column=1, columnspan=98, sticky="w", padx=8, pady=(0,8))
+
         for key, val in app.items():
             if key in ("name","type"):
                 continue
             if val:
-                f = tk.Frame(card, bg=PANEL)
-                f.grid(row=1, column=col, sticky="w", padx=8, pady=(0,8))
+                f = tk.Frame(fields_frame, bg=PANEL)
+                f.pack(anchor="w")
                 tk.Label(f, text=key.replace("_"," ").title()+":", bg=PANEL,
                          fg=SUBTEXT, font=("Segoe UI", 8)).pack(anchor="w")
                 tk.Label(f, text=val, bg=PANEL, fg=TEXT,
                          font=("Segoe UI", 9)).pack(anchor="w")
-                col += 1
-
-        del_btn = btn(card, "✕", lambda i=idx: self._del_app(config_name, i),
-                      color=PANEL, fg=DANGER)
-        del_btn.grid(row=0, column=99, sticky="e", padx=8)
-        card.columnconfigure(99, weight=1)
 
     def _find_drop_index(self, parent, y_pos):
         """Trouve l'index où déposer l'élément basé sur la position Y"""
@@ -359,6 +375,98 @@ class UI:
         if messagebox.askyesno("Supprimer", "Retirer cette application ?"):
             self.mgr.remove_app(config_name, idx)
             self._show_config(config_name)
+
+    def _edit_app_dlg(self, config_name, idx):
+        """Dialog pour éditer une application existante"""
+        cfg = self.mgr.get_config(config_name)
+        if not cfg or idx < 0 or idx >= len(cfg["apps"]):
+            return
+        
+        app = cfg["apps"][idx]
+        dlg = Dlg(self.root, f"Éditer - {app.get('name','')}", 500, 550)
+
+        tk.Label(dlg.body, text="Nom :", bg=PANEL, fg=TEXT).pack(anchor="w")
+        name_e = entry(dlg.body, width=38)
+        name_e.insert(0, app.get("name",""))
+        name_e.pack(pady=(2,10), fill="x")
+
+        tk.Label(dlg.body, text="Type :", bg=PANEL, fg=TEXT).pack(anchor="w")
+        type_var = tk.StringVar(value=app.get("type", APP_TYPES[0]))
+        type_cb = ttk.Combobox(dlg.body, values=APP_TYPES,
+                               textvariable=type_var, state="readonly", width=48)
+        type_cb.pack(pady=(2,12), fill="x")
+
+        # Scroll frame for fields
+        scroll_frame = tk.Frame(dlg.body, bg=PANEL)
+        scroll_frame.pack(fill="both", expand=True)
+
+        canvas = tk.Canvas(scroll_frame, bg=PANEL, highlightthickness=0)
+        scrollbar = ttk.Scrollbar(scroll_frame, orient="vertical", command=canvas.yview)
+        canvas.configure(yscrollcommand=scrollbar.set)
+        scrollbar.pack(side="right", fill="y")
+        canvas.pack(side="left", fill="both", expand=True)
+
+        fields_frame = tk.Frame(canvas, bg=PANEL)
+        canvas.create_window((0, 0), window=fields_frame, anchor="nw")
+
+        def on_frame_config(e):
+            canvas.configure(scrollregion=canvas.bbox("all"))
+        fields_frame.bind("<Configure>", on_frame_config)
+
+        field_entries = {}
+
+        def build_fields(*_):
+            for w in fields_frame.winfo_children():
+                w.destroy()
+            field_entries.clear()
+            atype = type_var.get()
+            for label, key, optional in TYPE_FIELDS.get(atype, []):
+                row = tk.Frame(fields_frame, bg=PANEL)
+                row.pack(fill="x", pady=4, padx=4)
+                lbl_txt = label + (" (optionnel)" if optional else " *")
+                tk.Label(row, text=lbl_txt, bg=PANEL, fg=TEXT if not optional else SUBTEXT,
+                         font=("Segoe UI", 9)).pack(anchor="w")
+                ent = entry(row, width=50)
+                # Récupérer la valeur actuelle de l'app
+                current_val = app.get(key, "")
+                if current_val:
+                    ent.insert(0, current_val)
+                ent.pack(fill="x", pady=(2,0))
+
+                # Browse button for path-like fields
+                if "path" in key.lower() or "jar" in key.lower() or "home" in key.lower() or "directory" in key.lower():
+                    def browse(e=ent, lbl=label):
+                        if "jar" in lbl.lower():
+                            path = filedialog.askopenfilename(
+                                parent=dlg, filetypes=[("JAR files","*.jar"),("All","*.*")])
+                        else:
+                            path = filedialog.askdirectory(parent=dlg)
+                        if path:
+                            e.delete(0,"end")
+                            e.insert(0, path)
+                    btn(row, "📁", browse, color=BORDER, fg=TEXT).pack(anchor="e", pady=2)
+
+                field_entries[key] = ent
+
+        type_cb.bind("<<ComboboxSelected>>", build_fields)
+        build_fields()
+
+        def save():
+            atype = type_var.get()
+            name  = name_e.get().strip()
+            if not name:
+                messagebox.showerror("Erreur", "Nom requis.", parent=dlg)
+                return
+            new_app = {"type": atype, "name": name}
+            for label, key, optional in TYPE_FIELDS.get(atype, []):
+                val = field_entries[key].get().strip()
+                new_app[key] = val
+            cfg["apps"][idx] = new_app
+            self.mgr.save()
+            self._show_config(config_name)
+            dlg.destroy()
+
+        btn(dlg.body, "Enregistrer", save, color=SUCCESS).pack(pady=(14,0), fill="x")
 
     # ── Add app dialog ───────────────────────────────────────────────
     def _add_app_dlg(self, config_name):
