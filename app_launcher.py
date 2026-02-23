@@ -279,25 +279,68 @@ class UI:
                 self._app_card(inner, name, i, app)
 
     def _app_card(self, parent, config_name, idx, app):
-        card = tk.Frame(parent, bg=PANEL, bd=0, relief="flat")
+        card = tk.Frame(parent, bg=PANEL, bd=1, relief="solid")
         card.pack(fill="x", pady=4, padx=2)
+
+        # Drag handle
+        handle = tk.Label(card, text="⋮⋮", bg=ACCENT, fg="white",
+                         font=("Segoe UI", 10), width=3, cursor="hand2")
+        handle.grid(row=0, rowspan=2, column=0, sticky="ns", padx=(4,8), pady=8)
+
+        # Store drag data
+        card.drag_data = {"config": config_name, "idx": idx, "card": card, "original_bg": PANEL}
+
+        def on_press(e):
+            card.drag_data["start_y"] = e.y_root
+            card.drag_data["start_x"] = e.x_root
+            card.config(bg="#2d3a5a", relief="solid", bd=2)
+            card.lift()
+
+        def on_motion(e):
+            # Move card with mouse
+            delta_y = e.y_root - card.drag_data["start_y"]
+            current_y = card.winfo_y()
+            new_y = current_y + delta_y
+            card.drag_data["start_y"] = e.y_root
+            
+            # Translate Y position to window coordinates and move
+            try:
+                card.place(y=new_y, relx=0, relwidth=1)
+                card.lift()
+            except:
+                pass
+
+        def on_release(e):
+            # Reset position with pack
+            card.place_forget()
+            card.config(bg=PANEL, relief="solid", bd=1)
+            # Find target position based on final mouse Y
+            y_pos = e.y_root
+            target_idx = self._find_drop_index_global(parent, y_pos)
+            if target_idx is not None and target_idx != idx:
+                self.mgr.move_app(config_name, idx, target_idx)
+                self._show_config(config_name)
+
+        handle.bind("<Button-1>", on_press)
+        handle.bind("<B1-Motion>", on_motion)
+        handle.bind("<ButtonRelease-1>", on_release)
 
         icon = TYPE_ICON.get(app.get("type",""), "⚙️")
         tk.Label(card, text=f"{icon}  {app.get('name','?')}",
                  bg=PANEL, fg=TEXT, font=("Segoe UI", 11, "bold")).grid(
-                     row=0, column=0, sticky="w", padx=12, pady=(10,4))
+                     row=0, column=1, sticky="w", padx=8, pady=(10,4))
 
         tk.Label(card, text=app.get("type",""), bg=PANEL, fg=ACCENT,
-                 font=("Segoe UI", 9)).grid(row=0, column=1, sticky="w", padx=8)
+                 font=("Segoe UI", 9)).grid(row=0, column=2, sticky="w", padx=8)
 
         # Fields preview
-        col = 0
+        col = 3
         for key, val in app.items():
             if key in ("name","type"):
                 continue
             if val:
                 f = tk.Frame(card, bg=PANEL)
-                f.grid(row=1, column=col, sticky="w", padx=12, pady=(0,8))
+                f.grid(row=1, column=col, sticky="w", padx=8, pady=(0,8))
                 tk.Label(f, text=key.replace("_"," ").title()+":", bg=PANEL,
                          fg=SUBTEXT, font=("Segoe UI", 8)).pack(anchor="w")
                 tk.Label(f, text=val, bg=PANEL, fg=TEXT,
@@ -308,6 +351,31 @@ class UI:
                       color=PANEL, fg=DANGER)
         del_btn.grid(row=0, column=99, sticky="e", padx=8)
         card.columnconfigure(99, weight=1)
+
+    def _find_drop_index(self, parent, y_pos):
+        """Trouve l'index où déposer l'élément basé sur la position Y"""
+        children = parent.winfo_children()
+        for i, child in enumerate(children):
+            if hasattr(child, 'winfo_y'):
+                child_y = child.winfo_y()
+                child_height = child.winfo_height()
+                if y_pos < child_y + child_height / 2:
+                    return i
+        return len(children)
+
+    def _find_drop_index_global(self, parent, global_y):
+        """Trouve l'index où déposer basé sur les coordonnées globales"""
+        children = parent.winfo_children()
+        parent_y = parent.winfo_rooty()
+        relative_y = global_y - parent_y
+        
+        for i, child in enumerate(children):
+            if hasattr(child, 'winfo_y'):
+                child_y = child.winfo_y()
+                child_height = child.winfo_height()
+                if relative_y < child_y + child_height / 2:
+                    return i
+        return len(children)
 
     def _del_app(self, config_name, idx):
         if messagebox.askyesno("Supprimer", "Retirer cette application ?"):
