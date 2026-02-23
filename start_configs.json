@@ -7,16 +7,11 @@
           "type": "ActiveMQ",
           "name": "amq",
           "home": "D:/Sagem_sousse/SICONIA/M2M/AMQ-evn"
-        }
-      ]
-    },
-    {
-      "name": "m2m",
-      "apps": [
+        },
         {
-          "type": "ActiveMQ",
-          "name": "amq",
-          "home": "D:/Sagem_sousse/SICONIA/M2M/AMQ-evn"
+          "type": "Timer",
+          "name": "t",
+          "seconds": "4"
         },
         {
           "type": "Spring Boot",
@@ -24,6 +19,28 @@
           "path": "D:/Sagem_sousse/SICONIA/M2M/m2m-master",
           "jar": "D:/Sagem_sousse/SICONIA/M2M/m2m-master/app/target/m2m-5.21.0-SNAPSHOT.jar",
           "run_config": ""
+        }
+      ]
+    },
+    {
+      "name": "m2m",
+      "apps": [
+        {
+          "type": "Spring Boot",
+          "name": "m2m",
+          "path": "D:/Sagem_sousse/SICONIA/M2M/m2m-master",
+          "jar": "D:/Sagem_sousse/SICONIA/M2M/m2m-master/app/target/m2m-5.21.0-SNAPSHOT.jar",
+          "run_config": ""
+        },
+        {
+          "type": "ActiveMQ",
+          "name": "amq",
+          "home": "D:/Sagem_sousse/SICONIA/M2M/AMQ-evn"
+        },
+        {
+          "type": "ActiveMQ",
+          "name": "azaz",
+          "home": "D:/Sagem_sousse/SICONIA/M2M/AMQ-evn"
         }
       ]
     }
