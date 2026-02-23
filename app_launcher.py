@@ -401,20 +401,32 @@ class UI:
             log.config(state="disabled")
 
         def run():
+            import time
             for app in cfg["apps"]:
                 atype = app.get("type","")
                 name  = app.get("name","?")
                 write(f"▶ {name} [{atype}]…")
                 try:
-                    cmd = self._build_cmd(app)
-                    if not cmd:
-                        write(f"  ⚠ Type inconnu, ignoré.")
-                        continue
-                    write(f"  $ {cmd}")
-                    # Launch in separate terminal window
-                    full_cmd = f'start "App Launcher - {name}" cmd /k "{cmd}"'
-                    subprocess.Popen(full_cmd, shell=True)
-                    write(f"  ✅ Lancé dans un nouveau terminal")
+                    if atype == "Timer":
+                        # Handle Timer type
+                        seconds = int(app.get("seconds","0"))
+                        write(f"  ⏱️ Attente de {seconds} seconde(s)...")
+                        for i in range(seconds):
+                            time.sleep(1)
+                            remaining = seconds - i - 1
+                            if remaining > 0:
+                                write(f"  {remaining}s...")
+                        write(f"  ✅ Délai écoulé - passage à l'app suivante")
+                    else:
+                        cmd = self._build_cmd(app)
+                        if not cmd:
+                            write(f"  ⚠ Type inconnu, ignoré.")
+                            continue
+                        write(f"  $ {cmd}")
+                        # Launch in separate terminal window
+                        full_cmd = f'start "App Launcher - {name}" cmd /k "{cmd}"'
+                        subprocess.Popen(full_cmd, shell=True)
+                        write(f"  ✅ Lancé dans un nouveau terminal")
                 except Exception as ex:
                     write(f"  ❌ Erreur : {ex}")
             write("\n— Terminé —")
