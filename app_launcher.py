@@ -460,6 +460,12 @@ class UI:
                 name  = app.get("name","?")
                 write(f"▶ {name} [{atype}]…")
                 try:
+                    # Validation des paramètres
+                    validation_error = self._validate_app(app)
+                    if validation_error:
+                        write(f"  ⚠ {validation_error}")
+                        continue
+                    
                     if atype == "Timer":
                         # Handle Timer type
                         seconds = int(app.get("seconds","0"))
@@ -485,6 +491,72 @@ class UI:
             write("\n— Terminé —")
 
         threading.Thread(target=run, daemon=True).start()
+
+    def _validate_app(self, app):
+        """Valide les paramètres d'une application avant lancement"""
+        atype = app.get("type","")
+        
+        if atype == "Spring Boot":
+            jar = app.get("jar","").strip()
+            if not jar:
+                return "Chemin du JAR non spécifié"
+            if not os.path.exists(jar):
+                return f"Fichier JAR introuvable : {jar}"
+            return None
+            
+        elif atype == "ActiveMQ":
+            home = app.get("home","").strip()
+            if not home:
+                return "Home path non spécifié"
+            activemq_bin = os.path.join(home, "bin", "activemq.bat")
+            if not os.path.exists(activemq_bin):
+                return f"ActiveMQ introuvable : {activemq_bin}"
+            return None
+            
+        elif atype == "Elasticsearch":
+            home = app.get("home","").strip()
+            if not home:
+                return "Home path non spécifié"
+            es_bin = os.path.join(home, "bin", "elasticsearch.bat")
+            if not os.path.exists(es_bin):
+                return f"Elasticsearch introuvable : {es_bin}"
+            return None
+            
+        elif atype == "Podman":
+            container = app.get("container","").strip()
+            if not container:
+                return "Nom du container non spécifié"
+            return None
+            
+        elif atype == "Podman Machine":
+            # Pas de validation requise
+            return None
+            
+        elif atype == "Docker Compose":
+            directory = app.get("directory","").strip()
+            if not directory:
+                return "Répertoire projet non spécifié"
+            if not os.path.exists(directory):
+                return f"Répertoire introuvable : {directory}"
+            compose_file = app.get("compose_file","docker-compose.yaml").strip()
+            if not compose_file:
+                compose_file = "docker-compose.yaml"
+            compose_path = os.path.join(directory, compose_file)
+            if not os.path.exists(compose_path):
+                return f"Fichier Docker Compose introuvable : {compose_path}"
+            return None
+            
+        elif atype == "Timer":
+            seconds = app.get("seconds","").strip()
+            if not seconds:
+                return "Nombre de secondes non spécifié"
+            try:
+                int(seconds)
+            except ValueError:
+                return f"Nombre de secondes invalide : {seconds}"
+            return None
+            
+        return None
 
     def _build_cmd(self, app):
         t = app.get("type","")
