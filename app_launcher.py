@@ -16,7 +16,7 @@ SUBTEXT  = "#64748b"
 BORDER   = "#2d3148"
 HOVER    = "#252840"
 
-APP_TYPES = ["Spring Boot", "ActiveMQ", "Elasticsearch", "Podman", "Timer"]
+APP_TYPES = ["Spring Boot", "ActiveMQ", "Elasticsearch", "Podman", "Podman Machine", "Docker Compose", "Timer"]
 
 TYPE_FIELDS = {
     "Spring Boot":   [("Path du projet",  "path",       False),
@@ -25,6 +25,9 @@ TYPE_FIELDS = {
     "ActiveMQ":      [("Home path",       "home",       False)],
     "Elasticsearch": [("Home path",       "home",       False)],
     "Podman":        [("Nom du container","container",  False)],
+    "Podman Machine":[],
+    "Docker Compose":[("Répertoire projet","directory", False),
+                      ("Fichier compose",  "compose_file", True)],
     "Timer":         [("Secondes",        "seconds",    False)],
 }
 
@@ -33,6 +36,8 @@ TYPE_ICON = {
     "ActiveMQ":      "📨",
     "Elasticsearch": "🔍",
     "Podman":        "📦",
+    "Podman Machine":"⚙️",
+    "Docker Compose":"🐳",
     "Timer":         "⏱️",
 }
 
@@ -288,35 +293,22 @@ class UI:
         handle.grid(row=0, rowspan=2, column=0, sticky="ns", padx=(4,8), pady=8)
 
         # Store drag data
-        card.drag_data = {"config": config_name, "idx": idx, "card": card, "original_bg": PANEL}
+        card.drag_data = {"config": config_name, "idx": idx, "card": card}
 
         def on_press(e):
-            card.drag_data["start_y"] = e.y_root
-            card.drag_data["start_x"] = e.x_root
+            card.drag_data["start_y"] = e.y
             card.config(bg="#2d3a5a", relief="solid", bd=2)
             card.lift()
 
         def on_motion(e):
-            # Move card with mouse
-            delta_y = e.y_root - card.drag_data["start_y"]
-            current_y = card.winfo_y()
-            new_y = current_y + delta_y
-            card.drag_data["start_y"] = e.y_root
-            
-            # Translate Y position to window coordinates and move
-            try:
-                card.place(y=new_y, relx=0, relwidth=1)
-                card.lift()
-            except:
-                pass
+            # Visual feedback while dragging
+            pass
 
         def on_release(e):
-            # Reset position with pack
-            card.place_forget()
             card.config(bg=PANEL, relief="solid", bd=1)
-            # Find target position based on final mouse Y
-            y_pos = e.y_root
-            target_idx = self._find_drop_index_global(parent, y_pos)
+            # Find target position based on mouse Y
+            y_pos = e.widget.winfo_y() + e.y
+            target_idx = self._find_drop_index(parent, y_pos)
             if target_idx is not None and target_idx != idx:
                 self.mgr.move_app(config_name, idx, target_idx)
                 self._show_config(config_name)
@@ -360,20 +352,6 @@ class UI:
                 child_y = child.winfo_y()
                 child_height = child.winfo_height()
                 if y_pos < child_y + child_height / 2:
-                    return i
-        return len(children)
-
-    def _find_drop_index_global(self, parent, global_y):
-        """Trouve l'index où déposer basé sur les coordonnées globales"""
-        children = parent.winfo_children()
-        parent_y = parent.winfo_rooty()
-        relative_y = global_y - parent_y
-        
-        for i, child in enumerate(children):
-            if hasattr(child, 'winfo_y'):
-                child_y = child.winfo_y()
-                child_height = child.winfo_height()
-                if relative_y < child_y + child_height / 2:
                     return i
         return len(children)
 
@@ -522,6 +500,17 @@ class UI:
             return f'"{home}/bin/elasticsearch"'
         elif t == "Podman":
             return f'podman start {app.get("container","")}'
+        elif t == "Podman Machine":
+            return f'podman machine start'
+        elif t == "Docker Compose":
+            directory = app.get("directory","")
+            compose_file = app.get("compose_file","docker-compose.yaml").strip()
+            if not compose_file:
+                compose_file = "docker-compose.yaml"
+            if directory:
+                return f'cd /d "{directory}" && podman compose -f {compose_file} up -d'
+            else:
+                return f'podman compose -f {compose_file} up -d'
         return None
 
 # ─── DIALOG HELPER ───────────────────────────────────────────────────
