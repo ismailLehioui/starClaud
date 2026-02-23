@@ -16,7 +16,7 @@ SUBTEXT  = "#64748b"
 BORDER   = "#2d3148"
 HOVER    = "#252840"
 
-APP_TYPES = ["Spring Boot", "ActiveMQ", "Elasticsearch", "Podman"]
+APP_TYPES = ["Spring Boot", "ActiveMQ", "Elasticsearch", "Podman", "Timer"]
 
 TYPE_FIELDS = {
     "Spring Boot":   [("Path du projet",  "path",       False),
@@ -25,6 +25,7 @@ TYPE_FIELDS = {
     "ActiveMQ":      [("Home path",       "home",       False)],
     "Elasticsearch": [("Home path",       "home",       False)],
     "Podman":        [("Nom du container","container",  False)],
+    "Timer":         [("Secondes",        "seconds",    False)],
 }
 
 TYPE_ICON = {
@@ -32,6 +33,7 @@ TYPE_ICON = {
     "ActiveMQ":      "📨",
     "Elasticsearch": "🔍",
     "Podman":        "📦",
+    "Timer":         "⏱️",
 }
 
 # ─── DATA MANAGER ────────────────────────────────────────────────────
@@ -409,8 +411,10 @@ class UI:
                         write(f"  ⚠ Type inconnu, ignoré.")
                         continue
                     write(f"  $ {cmd}")
-                    subprocess.Popen(cmd, shell=True)
-                    write(f"  ✅ Lancé")
+                    # Launch in separate terminal window
+                    full_cmd = f'start "App Launcher - {name}" cmd /k "{cmd}"'
+                    subprocess.Popen(full_cmd, shell=True)
+                    write(f"  ✅ Lancé dans un nouveau terminal")
                 except Exception as ex:
                     write(f"  ❌ Erreur : {ex}")
             write("\n— Terminé —")
