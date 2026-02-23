@@ -84,6 +84,13 @@ class Manager:
             cfg["apps"].pop(idx)
             self.save()
 
+    def move_app(self, config_name, from_idx, to_idx):
+        cfg = self.get_config(config_name)
+        if cfg and 0 <= from_idx < len(cfg["apps"]) and 0 <= to_idx <= len(cfg["apps"]):
+            app = cfg["apps"].pop(from_idx)
+            cfg["apps"].insert(to_idx, app)
+            self.save()
+
 # ─── STYLE HELPERS ───────────────────────────────────────────────────
 def styled(root):
     style = ttk.Style(root)
